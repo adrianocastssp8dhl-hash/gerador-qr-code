@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de QR Code por ID</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --dhl-red:#D40511;
+    --dhl-yellow:#FFCC00;
+    --ink:#1a1a1a;
+    --line:#e3e3e3;
+    --bg:#f5f5f4;
+    --panel:#ffffff;
+    --muted:#6b6b6b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Helvetica Neue",Arial,system-ui,sans-serif;
+    color:var(--ink);
+    background:var(--bg);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 20px 64px;}
+
+  header{
+    display:flex;align-items:center;gap:14px;
+    border-bottom:3px solid var(--dhl-yellow);
+    padding-bottom:16px;margin-bottom:24px;
+  }
+  .mark{
+    width:10px;height:34px;background:var(--dhl-red);border-radius:1px;
+  }
+  h1{font-size:22px;font-weight:800;letter-spacing:-.4px;margin:0;}
+  header p{margin:2px 0 0;font-size:13px;color:var(--muted);}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:20px;margin-bottom:20px;
+  }
+  label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;}
+  textarea{
+    width:100%;min-height:150px;resize:vertical;
+    font-family:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+    font-size:14px;line-height:1.55;
+    padding:12px 14px;border:1px solid var(--line);border-radius:8px;
+    background:#fafafa;color:var(--ink);
+  }
+  textarea:focus{outline:none;border-color:var(--dhl-red);background:#fff;}
+
+  .controls{
+    display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-top:18px;
+  }
+  .field{display:flex;flex-direction:column;}
+  .field label{margin-bottom:6px;}
+  select,input[type=number]{
+    font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;min-width:120px;
+  }
+  .spacer{flex:1;}
+  .count{font-size:13px;color:var(--muted);align-self:center;}
+  .count b{color:var(--ink);}
+
+  button{
+    font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;
+    border:none;border-radius:8px;padding:11px 20px;transition:.12s;
+  }
+  .btn-primary{background:var(--dhl-red);color:#fff;}
+  .btn-primary:hover{background:#b00410;}
+  .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--ink);}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+
+  .warn{
+    font-size:13px;color:var(--dhl-red);margin-top:10px;display:none;
+  }
+
+  /* Grade de QR codes */
+  #saida{margin-top:8px;}
+  .grid{
+    display:grid;
+    gap:var(--gap,24px);
+    grid-template-columns:repeat(var(--cols,3),1fr);
+  }
+  .card{
+    background:#fff;border:1px solid var(--line);border-radius:8px;
+    padding:16px;text-align:center;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    break-inside:avoid;page-break-inside:avoid;
+  }
+  .card .qr{background:#fff;padding:6px;line-height:0;}
+  .card .qr img,.card .qr canvas{display:block;}
+  .card .id{
+    font-family:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+    font-size:13px;font-weight:600;word-break:break-all;color:var(--ink);
+  }
+  .empty{
+    text-align:center;color:var(--muted);font-size:14px;
+    padding:50px 20px;border:1px dashed var(--line);border-radius:10px;
+  }
+
+  @media (max-width:640px){
+    .grid{grid-template-columns:repeat(2,1fr);}
+  }
+
+  /* Impressão: só os QR codes, com margens limpas para bipagem */
+  @media print{
+    @page{margin:14mm;}
+    body{background:#fff;}
+    .wrap{padding:0;max-width:none;}
+    header,.panel,.no-print{display:none !important;}
+    #saida{margin:0;}
+    .grid{gap:var(--gap,24px);}
+    .card{border:1px dashed #bbb;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="mark"></div>
+    <div>
+      <h1>Gerador de QR Code por ID</h1>
+      <p>Cole a lista de IDs, gere os códigos e imprima — cada um espaçado para bipar separadamente.</p>
+    </div>
+  </header>
+
+  <div class="panel no-print">
+    <label for="ids">Lista de IDs</label>
+    <textarea id="ids" placeholder="Cole um ID por linha. Ex:&#10;ML-100234&#10;ML-100235&#10;ML-100236"></textarea>
+
+    <div class="controls">
+      <div class="field">
+        <label for="cols">Colunas por linha</label>
+        <select id="cols">
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="size">Tamanho (px)</label>
+        <select id="size">
+          <option value="110">Pequeno (110)</option>
+          <option value="150" selected>Médio (150)</option>
+          <option value="200">Grande (200)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="gap">Espaçamento (mm)</label>
+        <input type="number" id="gap" value="10" min="2" max="40" step="1">
+      </div>
+      <div class="spacer"></div>
+      <div class="count" id="contador">Nenhum ID detectado</div>
+    </div>
+
+    <div class="warn" id="aviso"></div>
+
+    <div class="btn-row" style="margin-top:18px;">
+      <button class="btn-primary" id="gerar">Gerar QR codes</button>
+      <button class="btn-ghost" id="imprimir">Imprimir</button>
+      <button class="btn-ghost" id="limpar">Limpar</button>
+    </div>
+  </div>
+
+  <div id="saida">
+    <div class="empty">Os QR codes vão aparecer aqui depois que você clicar em <b>Gerar</b>.</div>
+  </div>
+
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const txt = $('ids'), saida = $('saida'), contador = $('contador'), aviso = $('aviso');
+
+  // Separa por quebra de linha, vírgula, ponto-e-vírgula, tab ou espaço
+  function parseIds(raw){
+    return raw.split(/[\n,;\t]+| {2,}/)
+              .map(s => s.trim())
+              .filter(Boolean);
+  }
+
+  function atualizarContador(){
+    const ids = parseIds(txt.value);
+    const unicos = new Set(ids);
+    if(ids.length === 0){
+      contador.textContent = 'Nenhum ID detectado';
+    } else {
+      contador.innerHTML = `<b>${ids.length}</b> ID(s) detectado(s)`;
+    }
+    // Aviso de duplicados
+    if(unicos.size < ids.length){
+      aviso.style.display = 'block';
+      aviso.textContent = `Atenção: há ${ids.length - unicos.size} ID(s) repetido(s) na lista.`;
+    } else {
+      aviso.style.display = 'none';
+    }
+  }
+  txt.addEventListener('input', atualizarContador);
+
+  function gerar(){
+    const ids = parseIds(txt.value);
+    const cols = $('cols').value;
+    const size = parseInt($('size').value, 10);
+    const gap = parseInt($('gap').value, 10) || 10;
+
+    saida.innerHTML = '';
+    if(ids.length === 0){
+      saida.innerHTML = '<div class="empty">Cole pelo menos um ID antes de gerar.</div>';
+      return;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    grid.style.setProperty('--cols', cols);
+    grid.style.setProperty('--gap', gap + 'mm');
+
+    ids.forEach(id => {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const qrBox = document.createElement('div');
+      qrBox.className = 'qr';
+      card.appendChild(qrBox);
+
+      const label = document.createElement('div');
+      label.className = 'id';
+      label.textContent = id;
+      card.appendChild(label);
+
+      grid.appendChild(card);
+
+      // Gera o QR dentro do card
+      new QRCode(qrBox, {
+        text: id,
+        width: size,
+        height: size,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    });
+
+    saida.appendChild(grid);
+  }
+
+  $('gerar').addEventListener('click', gerar);
+  $('imprimir').addEventListener('click', () => window.print());
+  $('limpar').addEventListener('click', () => {
+    txt.value = '';
+    saida.innerHTML = '<div class="empty">Os QR codes vão aparecer aqui depois que você clicar em <b>Gerar</b>.</div>';
+    atualizarContador();
+  });
+
+  atualizarContador();
+</script>
+</body>
+</html>
